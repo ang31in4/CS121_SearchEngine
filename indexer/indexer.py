@@ -6,77 +6,69 @@ from collections import defaultdict
 
 def tokenize(text):
     """
-        Tokenizes the given text into words, preserving alphanumeric sequences and apostrophes.
-
-        Args:
-            text (str): The input text to tokenize.
-
-        Returns:
-            list: A list of tokens extracted from the text.
+    Tokenizes the given text into words, preserving alphanumeric sequences and apostrophes.
     """
-    # Split by non-word characters and convert to lowercase
-    text_tokens = re.findall(r"[a-zA-Z0-9']+", text.lower())
-    return text_tokens
-
+    return re.findall(r"[a-zA-Z0-9']+", text.lower())
 
 def parse_files(path: str) -> int:
-    # Initialize the inverted index and documents indexed
-    inverted_index = defaultdict(list)
+    inverted_index = defaultdict(list)  # Inverted index (token -> [{docID, freq}])
+    doc_id_mapping = {}  # Maps docID -> URL
     documents_indexed = 0
 
-    # Parse through folders of DEV
-    for root, dirs, files in os.walk(directory_path):
+    for root, _, files in os.walk(path):
         for filename in files:
             file_path = os.path.join(root, filename)
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                url = data.get('url', '')
-                content = data.get('content', '')
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                print(f"Skipping {file_path}: {e}")
+                continue
 
-                documents_indexed += 1
-                print(f'DOCUMENT {documents_indexed}: {url}')
+            url = data.get('url', '')
+            content = data.get('content', '')
 
-                soup = BeautifulSoup(content, 'xml')
-                text_content = soup.get_text()
+            if not url or not content:
+                continue  # Skip invalid documents
 
-                # Tokenize the content
-                tokens = tokenize(text_content)
+            # Assign a unique docID
+            docID = documents_indexed
+            doc_id_mapping[docID] = url  # Store mapping
+            documents_indexed += 1
+            print(f'DOCUMENT {docID}: {url}')
 
-                # Calculate term frequency
-                term_freq = defaultdict(int)
-                for token in tokens:
-                    term_freq[token] += 1
+            soup = BeautifulSoup(content, 'html.parser')
+            text_content = soup.get_text()
 
-                # Update the inverted index with the token frequencies and URLs
-                for token, freq in term_freq.items():
-                    inverted_index[token].append({
-                        'url': url,
-                        'term_frequency': freq
-                    })
+            tokens = tokenize(text_content)
+            term_freq = defaultdict(int)
+            for token in tokens:
+                term_freq[token] += 1
 
-    store_index(inverted_index)
+            for token, freq in term_freq.items():
+                inverted_index[token].append((docID, freq))
+
+    store_index(inverted_index, doc_id_mapping)
     return documents_indexed
 
-def store_index(inverted_index):
-    # Convert defaultdict to a regular dict
-    inverted_index = dict(inverted_index)
+def store_index(inverted_index, doc_id_mapping):
+    output_index_path = os.path.join(os.getcwd(), 'inverted_index.json')
+    output_mapping_path = os.path.join(os.getcwd(), 'doc_id_mapping.json')
 
-    output_file_path = os.path.join(parent_dir, 'indexer', 'inverted_index.json')
+    with open(output_index_path, 'w', encoding='utf-8') as file:
+        json.dump(dict(inverted_index), file, separators=(',', ':'))
 
-    # Write the inverted index to a JSON file
-    with open(output_file_path, 'w', encoding='utf-8') as file:
-            json.dump(inverted_index, file, indent=2)
+    with open(output_mapping_path, 'w', encoding='utf-8') as file:
+        json.dump(doc_id_mapping, file, separators=(',', ':'))
 
-    # Print total number of tokens
     print(f'NUMBER OF TOKENS: {len(inverted_index)}')
-
+    print(f'Stored inverted index: {output_index_path}')
+    print(f'Stored docID mapping: {output_mapping_path}')
 
 if __name__ == '__main__':
-    # Get path to DEV folder
     current_dir = os.getcwd()
     parent_dir = os.path.dirname(current_dir)
     directory_path = os.path.join(parent_dir, 'DEV')
 
-    # Parse through documents
     num_indexed = parse_files(directory_path)
     print(f'NUMBER OF DOCUMENTS: {num_indexed}')

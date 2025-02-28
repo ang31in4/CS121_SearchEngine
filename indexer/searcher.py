@@ -49,9 +49,17 @@ def map_back_to_URL(docID, docID_mapping):
     return urls
 
 
+def write_report(query, urls, report_file_path):
+    with open(report_file_path, 'a', encoding = 'utf-8') as report_file:
+        report_file.write(f'Query: {query}\n')
+        for url in urls:
+            report_file.write(f'{url}\n')
+        report_file.write('\n')
+
 if __name__ == "__main__":
     index_file = "indexer_json/inverted_index.json"
     docID_file = "indexer_json/doc_id_mapping.json"
+    report = "search_report.txt"
 
     inverted_index = load_index(index_file)  # Load once into memory
     docID_file = load_index(docID_file)
@@ -63,5 +71,7 @@ if __name__ == "__main__":
 
         docIDs = search(user_query, inverted_index)
         urls = map_back_to_URL(docIDs, docID_file)
+
+        write_report(user_query, urls, report)
 
         print("Matching documents:", urls if urls else "No matching documents found.")

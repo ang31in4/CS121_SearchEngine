@@ -1,3 +1,5 @@
 nltk
 lxml
 beautifulsoup4
+flask
+python-dotenv

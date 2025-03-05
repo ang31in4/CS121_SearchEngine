@@ -1,5 +1,5 @@
 import json
-import indexer
+from engine.indexer import tokenize
 
 def load_index(index_file):
     """Load the entire inverted index into memory."""
@@ -8,7 +8,7 @@ def load_index(index_file):
 
 def search(query, inverted_index):
     """Perform a logical AND search on the loaded inverted index."""
-    query_terms = indexer.tokenize(query)  # Convert query to set
+    query_terms = tokenize(query)  # Convert query to set
     doc_sets = []  # Store sets of docIDs for each term
     doc_freq_map = {}  # Stores {docID: total frequency}
 

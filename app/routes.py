@@ -3,7 +3,6 @@ from app import app
 from engine.searcher import search, map_back_to_URL
 import json
 
-
 # Load inverted index and docID mapping into memory
 INDEX_FILE = "engine/indexer_json/inverted_index.json"
 DOCID_FILE = "engine/indexer_json/doc_id_mapping.json"

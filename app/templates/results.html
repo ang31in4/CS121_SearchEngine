@@ -4,18 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Search Results</title>
+    <link rel="stylesheet" href="../static/styles.css">
 </head>
 <body>
-    <h1>Search Results for "{{ query }}"</h1>
-    <ul>
+    <h1 class="title">Search Results for "{{ query }}"</h1>
+    <ul class="results-list">
         {% if results %}
             {% for url in results %}
-                <li><a href="{{ url }}" target="_blank">{{ url }}</a></li>
+                <li class="result-item"><a href="{{ url }}" target="_blank">{{ url }}</a></li>
             {% endfor %}
         {% else %}
-            <li>No matching documents found.</li>
+            <li class="result-item">No matching documents found.</li>
         {% endif %}
     </ul>
-    <a href="/">Back to search</a>
+    <a href="/" class="back-link">Back to search</a>
 </body>
 </html>

@@ -4,12 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Search Engine</title>
+    <link rel="stylesheet" href="../static/styles.css">
 </head>
 <body>
-    <h1>Search Engine</h1>
-    <form action="/search" method="post">
-        <input type="text" name="query" placeholder="Enter search term" required>
-        <button type="submit">Search</button>
+    <h1 class="title">Zoogle</h1>
+    <form class="search-form" action="/search" method="post">
+        <label>
+            <input class="search-input" type="text" name="query" placeholder="Enter search term" required>
+        </label>
+        <button class="search-button" type="submit">Search</button>
     </form>
 </body>
 </html>

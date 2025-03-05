@@ -57,8 +57,8 @@ def write_report(query, urls, report_file_path):
         report_file.write('\n')
 
 if __name__ == "__main__":
-    index_file = "indexer_json/inverted_index.json"
-    docID_file = "indexer_json/doc_id_mapping.json"
+    index_file = "indexer_json/merged_inverted_index.json"
+    docID_file = "indexer_json/merged_docIDs.json"
     report = "search_report.txt"
 
     inverted_index = load_index(index_file)  # Load once into memory

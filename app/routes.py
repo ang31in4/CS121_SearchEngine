@@ -4,8 +4,9 @@ from engine.searcher import search, map_back_to_URL
 import json
 
 # Load inverted index and docID mapping into memory
-INDEX_FILE = "engine/indexer_json/inverted_index.json"
-DOCID_FILE = "engine/indexer_json/doc_id_mapping.json"
+INDEX_FILE = "engine/indexer_json/merged_inverted_index.json"
+DOCID_FILE = "engine/indexer_json/merged_docIDs.json"
+
 inverted_index = json.load(open(INDEX_FILE))
 docID_mapping = json.load(open(DOCID_FILE))
 

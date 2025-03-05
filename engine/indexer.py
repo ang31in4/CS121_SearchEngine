@@ -71,7 +71,7 @@ def parse_files(path: str) -> None:
                 term_freq[token] += 1
 
             for token, freq in term_freq.items():
-                inverted_index[token].append((docID, freq))
+                inverted_index[token].append((docID, freq)) # add a third parameter to the tuple which is tf-idf
 
             # Dump into new json file every 10000 documents
             if docs_indexed % 1000 == 0:
@@ -192,7 +192,6 @@ def merge_index() -> None:
 
         # After processing all batches, write the closing brace to end the JSON structure
         json.dump(merged_data, output_file, separators = (',', ':'))
-        output_file.write('}')
 
     num_tokens = len(merged_data)
 

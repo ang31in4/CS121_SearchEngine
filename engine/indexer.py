@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import re
 from bs4 import BeautifulSoup
@@ -159,8 +160,8 @@ def merge_index() -> None:
     """
     Merges all batches of inverted index stored into one JSON file.
     """
-    global json_batch
-    global num_tokens
+    global json_batch, num_tokens, docs_indexed
+
     # Open the output file in write mode
     merged_inverted_index = os.path.join(os.getcwd(), 'indexer_json', 'merged_inverted_index.json')
 
@@ -189,6 +190,18 @@ def merge_index() -> None:
             # Delete the batch file after processing
             os.remove(batch_file)
             i += 1
+
+        # Compute tf-idf for each token's postings.
+        for token, postings in merged_data.items():
+            df = len(postings)
+            # Avoid division by zero
+            idf = math.log(docs_indexed / df) if df > 0 else 0
+            new_postings = []
+            for posting in postings:
+                docID, freq = posting[0], posting[1]
+                tfidf = (1 + math.log(freq)) * idf
+                new_postings.append((docID, freq, tfidf))  # now each posting is a tuple (docID, freq, tf-idf)
+            merged_data[token] = new_postings
 
         # After processing all batches, write the closing brace to end the JSON structure
         json.dump(merged_data, output_file, separators = (',', ':'))

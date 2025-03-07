@@ -1,4 +1,5 @@
 import json
+import string
 import os
 import re
 from bs4 import BeautifulSoup
@@ -35,8 +36,7 @@ def parse_files(path: str) -> None:
 
     :param path: path to DEV folder
     """
-    global docs_indexed
-    global json_batch
+    global docs_indexed, json_batch
     inverted_index = defaultdict(list)  # Inverted index (token -> [{docID, freq}])
     doc_id_mapping = {}  # Maps docID -> URL
 
@@ -74,7 +74,7 @@ def parse_files(path: str) -> None:
                 inverted_index[token].append((docID, freq)) # add a third parameter to the tuple which is tf-idf
 
             # Dump into new json file every 10000 documents
-            if docs_indexed % 1000 == 0:
+            if docs_indexed % 10000 == 0:
                 store_index(inverted_index, doc_id_mapping)
                 json_batch += 1
                 # Clear from memory
@@ -84,7 +84,7 @@ def parse_files(path: str) -> None:
     store_index(inverted_index, doc_id_mapping) # dump remaining documents
 
     merge_docIDs() # merge docIDs
-    merge_index() # merge inverted_indexes
+    sort_index() # sort inverted_indexes
 
 
 def store_index(inverted_index: defaultdict, doc_id_mapping: dict) -> None:
@@ -154,59 +154,88 @@ def merge_docIDs() -> None:
 
     print(f'Merged docIDs has been stored in: {merged_docIDs}')
 
-
-def merge_index() -> None:
+def sort_index() -> None:
     """
-    Merges all batches of inverted index stored into one JSON file.
+    Merges all batches of inverted index stored into separate JSON files
+    sorted by the first letter of each term (e.g., a_inverted_index.json, b_inverted_index.json).
     """
-    global json_batch
-    global num_tokens
-    # Open the output file in write mode
-    merged_inverted_index = os.path.join(os.getcwd(), 'indexer_json', 'merged_inverted_index.json')
+    global json_batch, num_tokens
+    
+    # Initialize output directory and files
+    output_dir = os.path.join(os.getcwd(), 'indexer_json')
+    
+    # Create a defaultdict to store merged results for each letter-based index
+    letter_based_index = defaultdict(lambda: defaultdict(list))
 
-    # Initialize an empty dictionary to hold the merged data
-    merged_data = {}
+    i = 0
+    while i <= json_batch:
+        batch_file = os.path.join(output_dir, f'inverted_index_{i}.json')
+        with open(batch_file, 'r', encoding='utf-8') as file:
+            data = json.load(file)  # Read the current batch
 
-    # Open the output file in write mode
-    with open(merged_inverted_index, 'w', encoding = 'utf-8') as output_file:
+            # For each key in the batch file, merge the data with the output
+            for key, value in data.items():
+                # Determine the first letter of the term (case insensitive)
+                first_letter = key[0].lower()
+                if first_letter.isdigit():
+                    first_letter = 'numbers'
+                elif not first_letter.isalpha():
+                    first_letter = 'special'
 
-        # Iterate over batch files and merge them incrementally
-        i = 0
-        while i <= json_batch:
-            batch_file = os.path.join(os.getcwd(), 'indexer_json', f'inverted_index_{i}.json')
-            with open(batch_file, 'r', encoding = 'utf-8') as file:
-                data = json.load(file)  # Read the current batch
+                # Append the value to the letter-based index
+                letter_based_index[first_letter][key].extend(value)
 
-                # For each key in the batch file, merge the data with the output
-                for key, value in data.items():
-                    # If the key is already in the merged data, merge the lists
-                    if key in merged_data:
-                        merged_data[key].extend(value)
-                    else:
-                        # If the key doesn't exist, add the new key and value
-                        merged_data[key] = value
+        # Delete the batch file after processing
+        os.remove(batch_file)
 
-            # Delete the batch file after processing
-            os.remove(batch_file)
-            i += 1
+        # Write the merged data to disk
+        for first_letter, sorted_index in letter_based_index.items():
+            sorted_file_path = os.path.join(output_dir, f'{first_letter}_inverted_index.json')
+            
+            # If the sorted file exists, load it, otherwise create a new one
+            if os.path.exists(sorted_file_path):
+                with open(sorted_file_path, 'r', encoding='utf-8') as sorted_file:
+                    existing_index = json.load(sorted_file)
+            else:
+                existing_index = {}
 
-        # After processing all batches, write the closing brace to end the JSON structure
-        json.dump(merged_data, output_file, separators = (',', ':'))
+            # Merge the new data with the existing index
+            for key, value in sorted_index.items():
+                if key in existing_index:
+                    existing_index[key].extend(value)
+                else:
+                    existing_index[key] = value
+                    num_tokens += 1
 
-    num_tokens = len(merged_data)
+            # Write the merged data back to the sorted file
+            with open(sorted_file_path, 'w', encoding='utf-8') as sorted_file:
+                json.dump(existing_index, sorted_file, separators=(',', ':'), ensure_ascii=False)
+            
+        letter_based_index.clear() # Clear memory
+        i += 1
 
-    print(f'Merged inverted index has been stored in: {merged_inverted_index}')
-
+    print(f'Sorted inverted index has been stored in letter-based index files under: {output_dir}')
 
 def build_report() -> None:
+    """
+    Build report that has index statistics (number documents 
+    indexed, number of tokens, total disk space (in KB).
+    """
     global num_tokens, docs_indexed
+    sorted_index_letters = list(string.ascii_lowercase) + ['numbers', 'special'] # Make a list of inverted_index json names
     docID_file_path = os.path.join(os.getcwd(), 'indexer_json','merged_docIDs.json')
-    inverted_index_path = os.path.join(os.getcwd(), 'indexer_json', 'merged_inverted_index.json')
     report_file_path = os.path.join(os.getcwd(), 'report.txt')
 
     # Convert file size of files in indexer_json to KB
     docID_bytes = os.stat(docID_file_path).st_size
-    inverted_index_bytes = os.stat(inverted_index_path).st_size
+    inverted_index_bytes = 0
+    for letter in sorted_index_letters:
+        file_path = os.path.join(os.getcwd(), 'indexer_json', f'{letter}_inverted_index.json')
+        
+        # Check if the file exists, and add its size if it does
+        if os.path.exists(file_path):
+            inverted_index_bytes += os.stat(file_path).st_size
+
     json_kb = (docID_bytes + inverted_index_bytes) / 1024
 
     # Write report details

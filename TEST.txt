@@ -1,0 +1,14 @@
+1. Iftekhar Ahmed
+2. machine learning
+These two word queries take around >300ms, so we are looking for the root
+cause of what is increasing the search time.
+
+3. does Iftehkar Ahmed teach machine learning
+4. all about apples
+5. all about anteaters are amazing
+The more unique letters a query has, the longer our search engine takes.
+We think this is because of how our current implementation has to open
+and close a file for each unique first letter. For example, query #3 takes
+1785ms, while query #5 takes 459ms. This is a significant increase, despite
+them both having the same length. Between #4 and #5, the search time between
+same letter queries of different lengths is marginal.

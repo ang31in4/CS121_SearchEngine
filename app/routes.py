@@ -17,7 +17,7 @@ def index():
 @app.route('/search', methods=['POST'])
 def search_route():
     query = request.form['query']
-    docIDs = search(query)
+    docIDs = search(query, len(docID_mapping))
     urls = map_back_to_URL(docIDs, docID_mapping)
     summaries = generate_summaries(urls)
     outputs = zip(urls, summaries)

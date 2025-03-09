@@ -1,9 +1,11 @@
 import json
 import os
-from indexer import tokenize
+from engine.indexer import tokenize
 import time
+import math
+from collections import Counter
 
-INDEX_DIR = "indexer_json"
+INDEX_DIR = "engine/indexer_json"
 
 def get_index_file(term):
     """Determine the appropriate index file for a given term."""
@@ -38,7 +40,16 @@ def load_partial_index(terms):
 
     return partial_index
 
-def search(query):
+def cosine_similarity(q_vec, d_vec):
+    """Compute cosine similarity between two vectors represented as dictionaries."""
+    dot_product = sum(q_vec.get(term, 0) * d_vec.get(term, 0) for term in q_vec)
+    norm_q = math.sqrt(sum(val ** 2 for val in q_vec.values()))
+    norm_d = math.sqrt(sum(val ** 2 for val in d_vec.values()))
+    if norm_q == 0 or norm_d == 0:
+        return 0.0
+    return dot_product / (norm_q * norm_d)
+
+def search(query, total_docs):
     """Perform a logical AND search on the dynamically loaded inverted index."""
     query_terms = tokenize(query)
     if not query_terms:
@@ -48,32 +59,39 @@ def search(query):
     if not inverted_index:
         return []
 
-    doc_sets = []
-    doc_freq_map = {}
-
-    for term in query_terms:
+    # Build the query vector using tf-idf weights.
+    query_tf = Counter(query_terms)
+    query_vector = {}
+    for term, tf in query_tf.items():
         if term in inverted_index:
-            postings = inverted_index[term]  # List of [docID, freq]
-            doc_ids = {doc[0] for doc in postings}
-            doc_sets.append(doc_ids)
+            df = len(inverted_index[term])
+            idf = math.log(total_docs / df)
+            query_vector[term] = (1 + math.log(tf)) * idf
 
-            # Accumulate frequency scores
-            for doc_id, freq in postings:
-                doc_freq_map[doc_id] = doc_freq_map.get(doc_id, 0) + freq
+    # Accumulate document scores based on the document's tf-idf for query terms.
+    doc_vectors = {}  # Mapping: docID -> { term: weight }
+    for term in query_vector:
+        if term in inverted_index:
+            postings = inverted_index[term]
+            df = len(postings)
+            idf = math.log(total_docs / df)
+            for posting in postings:
+                docID, freq = posting
+                if docID not in doc_vectors:
+                    doc_vectors[docID] = {}
+                # If a term appears multiple times in a doc, we use its tf value
+                doc_vectors[docID][term] = (1+math.log(freq)) * idf
 
-    if not doc_sets:
-        return []
+    scores = {}
+    for docID, d_vec in doc_vectors.items():
+        # if not all(term in d_vec for term in query_vector): continue
+        scores[docID] = cosine_similarity(query_vector, d_vec)
 
-    doc_sets.sort(key=len)  # Sort postings lists by size to optimize intersection
-    result_docs = doc_sets[0]
+    # Rank documents by score and return top 5.
+    ranked_docs = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    top_docs = [docID for docID, score in ranked_docs[:5]]
+    return top_docs
 
-    for doc_set in doc_sets[1:]:
-        result_docs &= doc_set  # In-place intersection
-        if not result_docs:  # Early exit
-            return []
-
-    sorted_results = sorted(result_docs, key=lambda doc: doc_freq_map[doc], reverse=True)
-    return sorted_results[:5]  # Return top 5 results
 
 def map_back_to_URL(docID, docID_mapping):
     urls = []
@@ -105,7 +123,7 @@ if __name__ == "__main__":
 
         start_time = time.time()
 
-        docIDs = search(user_query)
+        docIDs = search(user_query, len(docID_mapping))
         urls = map_back_to_URL(docIDs, docID_mapping)
 
         search_time = (time.time() - start_time) * 1000

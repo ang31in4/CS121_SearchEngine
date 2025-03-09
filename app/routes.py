@@ -3,7 +3,7 @@ from app import app
 from engine.searcher import search, map_back_to_URL
 from engine.summaries import generate_summaries
 import json
-
+import asyncio
 # Load inverted index and docID mapping into memory
 #INDEX_FILE = "engine/indexer_json/inverted_index.json"
 DOCID_FILE = "engine/indexer_json/merged_docIDs.json"
@@ -19,7 +19,7 @@ def search_route():
     query = request.form['query']
     docIDs = search(query, len(docID_mapping))
     urls = map_back_to_URL(docIDs, docID_mapping)
-    summaries = generate_summaries(urls)
+    summaries = asyncio.run(generate_summaries(urls))
     outputs = zip(urls, summaries)
 
     return render_template('results.html', query=query, results=urls, outputs=outputs)

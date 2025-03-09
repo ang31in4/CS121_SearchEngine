@@ -190,14 +190,19 @@ def sort_index() -> None:
 
         # Write the merged data to disk
         for first_letter, sorted_index in letter_based_index.items():
-            sorted_file_path = os.path.join(output_dir, f'{first_letter}_inverted_index.json')
-            
+            sorted_file_path = os.path.join(output_dir, f'{first_letter}_inverted_index.jsonl')
+
             # If the sorted file exists, load it, otherwise create a new one
+            existing_index = {}
             if os.path.exists(sorted_file_path):
                 with open(sorted_file_path, 'r', encoding='utf-8') as sorted_file:
-                    existing_index = json.load(sorted_file)
-            else:
-                existing_index = {}
+                    for line in sorted_file:
+                        try:
+                            entry = json.loads(line.strip())
+                            term, postings = next(iter(entry.items()))
+                            existing_index[term] = postings
+                        except json.JSONDecodeError:
+                            continue  # Skip corrupted lines
 
             # Merge the new data with the existing index
             for key, value in sorted_index.items():
@@ -209,12 +214,44 @@ def sort_index() -> None:
 
             # Write the merged data back to the sorted file
             with open(sorted_file_path, 'w', encoding='utf-8') as sorted_file:
-                json.dump(existing_index, sorted_file, separators=(',', ':'), ensure_ascii=False)
+                for term, postings in sorted_index.items():
+                    json.dump({term: postings}, sorted_file)
+                    sorted_file.write('\n')  # Newline after each JSON object
             
         letter_based_index.clear() # Clear memory
         i += 1
 
     print(f'Sorted inverted index has been stored in letter-based index files under: {output_dir}')
+
+def build_index_of_index():
+    index_dir = "indexer_json"  # Directory containing all JSONL index files
+    offset_index_file = "index_offsets.json"
+    offsets = {}
+    # Iterate over all index files
+    for filename in os.listdir(index_dir):
+        if filename.endswith(".jsonl"):
+            file_path = os.path.join(index_dir, filename)
+
+            # Open each JSONL file and record term offsets
+            with open(file_path, 'r', encoding='utf-8') as f:
+                while True:
+                    offset = f.tell()  # Get the starting byte position
+                    line = f.readline()
+                    if not line:
+                        break  # Stop when EOF
+                    try:
+                        data = json.loads(line)  # Load the JSON line
+                        term = next(iter(data))  # Extract the term (first key in dictionary)
+                        offsets[term] = {"file": filename, "offset": offset}  # Store file and offset
+                    except json.JSONDecodeError:
+                        continue  # Skip malformed lines
+
+    # Save the offset index to a JSON file
+    with open(os.path.join(index_dir, offset_index_file), 'w', encoding='utf-8') as f:
+        json.dump(offsets, f, separators=(',', ':'))
+
+    print(f"Offset index stored in {offset_index_file}")
+
 
 def build_report() -> None:
     """
@@ -230,7 +267,7 @@ def build_report() -> None:
     docID_bytes = os.stat(docID_file_path).st_size
     inverted_index_bytes = 0
     for letter in sorted_index_letters:
-        file_path = os.path.join(os.getcwd(), 'indexer_json', f'{letter}_inverted_index.json')
+        file_path = os.path.join(os.getcwd(), 'indexer_json', f'{letter}_inverted_index.jsonl')
         
         # Check if the file exists, and add its size if it does
         if os.path.exists(file_path):
@@ -251,3 +288,4 @@ if __name__ == '__main__':
 
     parse_files(directory_path)
     build_report()
+    build_index_of_index()

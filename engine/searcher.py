@@ -1,42 +1,40 @@
 import json
 import os
-from engine.indexer import tokenize
+from indexer import tokenize
 import time
 import math
 from collections import Counter
 
-INDEX_DIR = "engine/indexer_json"
+INDEX_DIR = "indexer_json"
 
 def get_index_file(term):
     """Determine the appropriate index file for a given term."""
     first_char = term[0].lower()
     if 'a' <= first_char <= 'z':  # Alphabet files
-        return os.path.join(INDEX_DIR, f'{first_char}_inverted_index.json')
+        return os.path.join(INDEX_DIR, f'{first_char}_inverted_index.jsonl')
     elif '0' <= first_char <= '9':  # Numbers file
-        return os.path.join(INDEX_DIR, 'numbers_inverted_index.json')
+        return os.path.join(INDEX_DIR, 'numbers_inverted_index.jsonl')
     else:  # Special characters file
-        return os.path.join(INDEX_DIR, 'special_inverted_index.json')
+        return os.path.join(INDEX_DIR, 'special_inverted_index.jsonl')
 
-def load_partial_index(terms):
-    """Load only the necessary portions of the index from relevant files."""
+
+def load_partial_index(terms, index_offset):
+    """Load only the necessary postings from the index using index offsets."""
     partial_index = {}
 
-    # Determine unique index files needed
-    index_files_needed = {}
     for term in terms:
         index_file = get_index_file(term)
-        if index_file not in index_files_needed:
-            index_files_needed[index_file] = []
-        index_files_needed[index_file].append(term)
 
-    # Load only relevant terms from each index file
-    for index_file, terms_in_file in index_files_needed.items():
-        if os.path.exists(index_file):  # Ensure the file exists
+        if term in index_offset and os.path.exists(index_file):
+            offset = index_offset[term]
             with open(index_file, 'r', encoding='utf-8') as f:
-                index_data = json.load(f)
-                for term in terms_in_file:
-                    if term in index_data:
-                        partial_index[term] = index_data[term]
+                f.seek(offset)  # Jump to the stored position
+                line = f.readline().strip()
+                try:
+                    entry = json.loads(line)
+                    partial_index[term] = entry.get(term, [])
+                except json.JSONDecodeError:
+                    continue  # Skip corrupted lines
 
     return partial_index
 
@@ -49,13 +47,14 @@ def cosine_similarity(q_vec, d_vec):
         return 0.0
     return dot_product / (norm_q * norm_d)
 
-def search(query, total_docs):
+def search(query, total_docs, index_offset):
     """Perform a logical AND search on the dynamically loaded inverted index."""
     query_terms = tokenize(query)
+    print(query_terms)
     if not query_terms:
         return []
 
-    inverted_index = load_partial_index(query_terms)
+    inverted_index = load_partial_index(query_terms, index_offset)
     if not inverted_index:
         return []
 
@@ -110,11 +109,17 @@ def write_report(query, urls, report_file_path):
 
 if __name__ == "__main__":
     docID_file_path = os.path.join(INDEX_DIR, "merged_docIDs.json")
+    index_offset_path = os.path.join(INDEX_DIR, "index_offsets.json")
+
     report_file = "search_report.txt"
 
     # Load docID to URL mapping once
     with open(docID_file_path, 'r', encoding='utf-8') as f:
         docID_mapping = json.load(f)
+
+    # Load index offsets for efficient lookup
+    with open(index_offset_path, 'r', encoding='utf-8') as f:
+        index_offset = json.load(f)
 
     while True:
         user_query = input("Enter your search query (or 'q' to quit): ").strip()
@@ -123,7 +128,7 @@ if __name__ == "__main__":
 
         start_time = time.time()
 
-        docIDs = search(user_query, len(docID_mapping))
+        docIDs = search(user_query, len(docID_mapping), index_offset)
         urls = map_back_to_URL(docIDs, docID_mapping)
 
         search_time = (time.time() - start_time) * 1000

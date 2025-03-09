@@ -242,7 +242,7 @@ def build_index_of_index():
                     try:
                         data = json.loads(line)  # Load the JSON line
                         term = next(iter(data))  # Extract the term (first key in dictionary)
-                        offsets[term] = {"file": filename, "offset": offset}  # Store file and offset
+                        offsets[term] = offset  # Store term and offset
                     except json.JSONDecodeError:
                         continue  # Skip malformed lines
 

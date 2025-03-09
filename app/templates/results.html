@@ -10,8 +10,11 @@
     <h1 class="title">Search Results for "{{ query }}"</h1>
     <ul class="results-list">
         {% if results %}
-            {% for url in results %}
-                <li class="result-item"><a href="{{ url }}" target="_blank">{{ url }}</a></li>
+            {% for url, summary in outputs %}
+                <li class="result-item">
+                    <a href="{{ url }}" target="_blank">{{ url }}</a>
+                    <p class="summary">{{ summary }}</p>
+                </li>
             {% endfor %}
         {% else %}
             <li class="result-item">No matching documents found.</li>

@@ -1,14 +1,35 @@
-1. Iftekhar Ahmed
-2. machine learning
-These two word queries take around >300ms, so we are looking for the root
-cause of what is increasing the search time.
+1. Iftekhar Ahmed - good, <500ms because of short query
+2. machine learning - good, <500ms because of short query
+3. does Iftehkar Ahmed teach machine learning - bad, >1000ms because it is long and has unique first letters
+4. all about apples - good, <300ms because it is short and all first letters are the same
+5. all about anteaters are amazing - good, <500ms because all first letters are the same
+6. what is the best way to get a good grade in a computer science class without ChatGPT - very bad, >3000ms because it is long and has many unique first letters
+7. machine - good, <300ms because it is short and only has one query
+8. 1998 12 5000 1999 - good, <300ms because it is all from one file, numbers
+9. apples bananas carrots dog eggs fish grapes honey ice juice knight lemon - very bad, >3000ms each term requires a new file to be opened and loaded in
+10. best color - good, <300ms because it is short and only 2 files need to be loaded
+11. Alexander Thornton - good <500ms because it is short and only 2 files need to be loaded
+12. What is the difference between a Roth IRA and a traditional 401(k)? - very bad, >3000ms each term requires a new file to be opened and loaded in
+13. Is UC Irvine a good school for computer science - very bad, >3000ms each term requires a new file to be opened and loaded in
+14. Top professors at UC Irvine for AI and machine learning - very bad, >3000ms each term requires a new file to be opened and loaded in
+15. Best research labs for computer vision at UC Irvine - very bad, >3000ms each term requires a new file to be opened and loaded in
+16. What is the average salary of a UC Irvine graduate - very bad, >3000ms each term requires a new file to be opened and loaded in
+17. UC Irvine acceptance rate 2025 - bad, >2000ms each term requires a new file to be opened and loaded in
+18. Highest-rated professors at UCI on RateMyProfessors - very bad, >3000ms each term requires a new file to be opened and loaded in
+19. cats - good, <300ms because it is short and only 2 files need to be loaded
+20. computer - good, < 300ms because it is short and only 2 files need to be loaded
 
-3. does Iftehkar Ahmed teach machine learning
-4. all about apples
-5. all about anteaters are amazing
-The more unique letters a query has, the longer our search engine takes.
-We think this is because of how our current implementation has to open
-and close a file for each unique first letter. For example, query #3 takes
-1785ms, while query #5 takes 459ms. This is a significant increase, despite
-them both having the same length. Between #4 and #5, the search time between
-same letter queries of different lengths is marginal.
+The more unique first letters a query has, the longer our search engine takes.
+This is because of our current implementation for searching the partial indices.
+We are taking each of the different terms from the query, getting the corresponding partial index for them,
+and loading the posting. This is to avoid loading the entire index into memory. However, loading a json file
+takes up a lot of time. For example, query #3 takes 1785ms, while query #5 takes 459ms. This is a significant
+increase, despite them both having the same length. Between #4 and #5, the search time between
+same letter queries of different lengths is less marginal.
+
+To fix this issue, we cannot simply load the indices before doing the search, because before doing the search,
+we do not know what the terms are. This means we will have to load the entire inverted index into memory, which is
+not what we want. So we decided to index the index, idea gotten from lecture slide 7.1-1, slide number 57. We store
+the byte offset of each term and its posting in a separate file, which is much smaller than the inverted index itself.
+Which means that we can load this index of the index into memory all at once with no problem, making the search
+marginally faster. Now, all of the queries run in <200ms, most running in in <100ms, and the good ones above run <50ms.

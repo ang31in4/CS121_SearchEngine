@@ -232,6 +232,10 @@ def sort_index() -> None:
 
 
 def build_index_of_index():
+    '''
+    Builds the index of term locations in the partial indexes
+    '''
+
     index_dir = "indexer_json"  # Directory containing all JSONL index files
     offset_index_file = "index_offsets.json"
     offsets = {}

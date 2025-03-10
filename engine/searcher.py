@@ -93,6 +93,9 @@ def search(query, total_docs, index_offset):
 
 
 def map_back_to_URL(docID, docID_mapping):
+    '''
+    takes a list of docIDs and returns the corresponding urls
+    '''
     urls = []
     for id in docID:
         urls.append(docID_mapping.get(str(id)))

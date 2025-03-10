@@ -1,11 +1,11 @@
 import json
 import os
-from indexer import tokenize
+from engine.indexer import tokenize
 import time
 import math
 from collections import Counter
 
-INDEX_DIR = "indexer_json"
+INDEX_DIR = "engine/indexer_json"
 
 def get_index_file(term):
     """Determine the appropriate index file for a given term."""
@@ -108,6 +108,9 @@ def write_report(query, urls, report_file_path):
         report_file.write('\n')
 
 if __name__ == "__main__":
+
+    INDEX_DIR = "indexer_json"
+
     docID_file_path = os.path.join(INDEX_DIR, "merged_docIDs.json")
     index_offset_path = os.path.join(INDEX_DIR, "index_offsets.json")
 

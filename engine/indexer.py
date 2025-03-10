@@ -5,12 +5,12 @@ import re
 from bs4 import BeautifulSoup
 from nltk.stem import PorterStemmer
 from collections import defaultdict
-
+import engine.simhash
 
 ## GLOBAL VARIABLES ##
-docs_indexed = 0 # number of documents indexed
-num_tokens = 0 # number of unique tokens
-json_batch = 0 # number of json batches for partial indexing
+docs_indexed = 0  # number of documents indexed
+num_tokens = 0  # number of unique tokens
+json_batch = 0  # number of json batches for partial indexing
 
 
 def tokenize(text):
@@ -59,19 +59,25 @@ def parse_files(path: str) -> None:
             # Assign a unique docID (zero-indexing)
             docID = docs_indexed
             doc_id_mapping[docID] = url  # Store mapping
-            docs_indexed += 1
+
             print(f'DOCUMENT {docID}: {url}')
 
             soup = BeautifulSoup(content, 'lxml')
             text_content = soup.get_text()
 
             tokens = tokenize(text_content)
+
+            if engine.simhash.is_same_content(tokens):
+                continue
+
+            docs_indexed += 1
+
             term_freq = defaultdict(int)
             for token in tokens:
                 term_freq[token] += 1
 
             for token, freq in term_freq.items():
-                inverted_index[token].append((docID, freq)) # add a third parameter to the tuple which is tf-idf
+                inverted_index[token].append((docID, freq))  # add a third parameter to the tuple which is tf-idf
 
             # Dump into new json file every 10000 documents
             if docs_indexed % 10000 == 0:
@@ -81,10 +87,10 @@ def parse_files(path: str) -> None:
                 inverted_index.clear()
                 doc_id_mapping.clear()
 
-    store_index(inverted_index, doc_id_mapping) # dump remaining documents
+    store_index(inverted_index, doc_id_mapping)  # dump remaining documents
 
-    merge_docIDs() # merge docIDs
-    sort_index() # sort inverted_indexes
+    merge_docIDs()  # merge docIDs
+    sort_index()  # sort inverted_indexes
 
 
 def store_index(inverted_index: defaultdict, doc_id_mapping: dict) -> None:
@@ -104,12 +110,12 @@ def store_index(inverted_index: defaultdict, doc_id_mapping: dict) -> None:
                                        f'doc_id_mapping_{json_batch}.json')
 
     # Store the inverted index
-    with open(output_index_path, 'w', encoding = 'utf-8') as file:
-        json.dump(dict(inverted_index), file, separators = (',', ':'))
+    with open(output_index_path, 'w', encoding='utf-8') as file:
+        json.dump(dict(inverted_index), file, separators=(',', ':'))
 
     # Store the doc ID mapping
-    with open(output_mapping_path, 'w', encoding = 'utf-8') as file:
-        json.dump(doc_id_mapping, file, separators = (',', ':'))
+    with open(output_mapping_path, 'w', encoding='utf-8') as file:
+        json.dump(doc_id_mapping, file, separators=(',', ':'))
 
     print(f'Batch {json_batch} of inverted index stored in: {output_index_path}')
     print(f'Batch {json_batch} of docID mapping stored in: {output_mapping_path}')
@@ -154,16 +160,17 @@ def merge_docIDs() -> None:
 
     print(f'Merged docIDs has been stored in: {merged_docIDs}')
 
+
 def sort_index() -> None:
     """
     Merges all batches of inverted index stored into separate JSON files
     sorted by the first letter of each term (e.g., a_inverted_index.json, b_inverted_index.json).
     """
     global json_batch, num_tokens
-    
+
     # Initialize output directory and files
     output_dir = os.path.join(os.getcwd(), 'indexer_json')
-    
+
     # Create a defaultdict to store merged results for each letter-based index
     letter_based_index = defaultdict(lambda: defaultdict(list))
 
@@ -217,11 +224,12 @@ def sort_index() -> None:
                 for term, postings in sorted_index.items():
                     json.dump({term: postings}, sorted_file)
                     sorted_file.write('\n')  # Newline after each JSON object
-            
-        letter_based_index.clear() # Clear memory
+
+        letter_based_index.clear()  # Clear memory
         i += 1
 
     print(f'Sorted inverted index has been stored in letter-based index files under: {output_dir}')
+
 
 def build_index_of_index():
     index_dir = "indexer_json"  # Directory containing all JSONL index files
@@ -255,12 +263,13 @@ def build_index_of_index():
 
 def build_report() -> None:
     """
-    Build report that has index statistics (number documents 
+    Build report that has index statistics (number documents
     indexed, number of tokens, total disk space (in KB).
     """
     global num_tokens, docs_indexed
-    sorted_index_letters = list(string.ascii_lowercase) + ['numbers', 'special'] # Make a list of inverted_index json names
-    docID_file_path = os.path.join(os.getcwd(), 'indexer_json','merged_docIDs.json')
+    sorted_index_letters = list(string.ascii_lowercase) + ['numbers',
+                                                           'special']  # Make a list of inverted_index json names
+    docID_file_path = os.path.join(os.getcwd(), 'indexer_json', 'merged_docIDs.json')
     report_file_path = os.path.join(os.getcwd(), 'report.txt')
 
     # Convert file size of files in indexer_json to KB
@@ -268,7 +277,7 @@ def build_report() -> None:
     inverted_index_bytes = 0
     for letter in sorted_index_letters:
         file_path = os.path.join(os.getcwd(), 'indexer_json', f'{letter}_inverted_index.jsonl')
-        
+
         # Check if the file exists, and add its size if it does
         if os.path.exists(file_path):
             inverted_index_bytes += os.stat(file_path).st_size
@@ -276,10 +285,11 @@ def build_report() -> None:
     json_kb = (docID_bytes + inverted_index_bytes) / 1024
 
     # Write report details
-    with open(report_file_path, 'w', encoding = 'utf-8') as report_file:
+    with open(report_file_path, 'w', encoding='utf-8') as report_file:
         report_file.write(f'DOCUMENTS INDEXED: {docs_indexed}\n')
         report_file.write(f'UNIQUE TOKENS: {num_tokens}\n')
         report_file.write(f'TOTAL SIZE (IN KB): {json_kb:.2f} KB\n')
+
 
 if __name__ == '__main__':
     current_dir = os.getcwd()
